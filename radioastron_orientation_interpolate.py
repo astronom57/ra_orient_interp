@@ -19,6 +19,7 @@ __status__ = 'Dev'
 import datetime as dt
 import csv
 import sys, getopt
+from argparse import ArgumentParser
 
 import numpy as np
 import pandas as pd
@@ -40,57 +41,54 @@ def read_orientation(file):
             i.e. RA and DEC coordinates for all three axes of RadioAstron.
         
     """
-        
-        
     df = pd.read_csv(file, sep='\s+', comment='#', 
                      names=['obscode', 'tmp1', 'tmp2', 
                             'xra', 'xdec',
                             'yra', 'ydec',
                             'zra', 'zdec'],
                      parse_dates={'time':[1,2]})
-    
 
     return df
 
 
 
+parser = ArgumentParser()
+parser.add_argument('file', type=str,
+                    help='Orientation file')
 
-# to be read from the command line later
-exp_start = None
-exp_end = None
-
-try:
-    opts, args = getopt.getopt(argv,"hb:a:",["add_before=","add_after="])
-except getopt.GetoptError:
-    print() 'test.py -i <inputfile> -o <outputfile>'
-    sys.exit(2)
-
-
-
-
+parser.add_argument("-b", "--add_before",
+                    dest="add_before", default=0.0, type=float,
+                    help="Add this amount of hours to the beginning of the data")
+parser.add_argument("-a", "--add_after",
+                    dest="add_after", default=0.0, type=float,
+                    help="Add this amount of hours to the end of the data")
+parser.add_argument("-p", "--plot",
+                    dest="do_plots", 
+                    action='store_true', default=False,
+                    help="Make plots")
+args = parser.parse_args()
 
 # logger = create_logger()
-file = '/homes/mlisakov/data/correlation/gg083j/orientation.txt'
+file = args.file
 df = read_orientation(file)
 obscode = max(set(df.obscode.values), key=list(df.obscode.values).count)
 
-
-
 # deal with 360 degrees wraps
-# TEST
 for col in ['xra', 'xdec', 'yra', 'ydec', 'zra', 'zdec']:
     df.loc[:, col] = np.degrees(np.unwrap(np.radians(df.loc[:, col])))
 
 
-fig, ax = plt.subplots(2,1, sharex=True)
-ax[0].plot(df.time.values, df.xra.values, '-o')
-ax[1].plot(df.time.values, df.yra.values, '-o')
+if args.do_plots:
+    fig, ax = plt.subplots(2,1, sharex=True, figsize=(16,8))
+    ax[0].plot(df.time.values, df.xra.values, '-o', label='orig')
+    ax[1].plot(df.time.values, df.xdec.values, '-o', label='orig')
+    ax[0].set_ylabel('R.A. wrapped [deg]')
+    ax[1].set_ylabel('DEC wrapped [deg]')
+    ax[1].set_xlabel('Time')
 
 
-if exp_start is None:
-    exp_start = df.time[0] - dt.timedelta(hours=1)
-if exp_end is None:
-    exp_end = df.time[df.index.max()] + dt.timedelta(hours=1)
+exp_start = df.time[0] - dt.timedelta(hours=args.add_before)
+exp_end = df.time[df.index.max()] + dt.timedelta(hours=args.add_after)
 
 delta_t = df.time.diff().median() # median sampling time. Should be 1 minute
 
@@ -107,9 +105,14 @@ df = pd.merge(df, dfn.loc[:, 'time'], how='right', on='time', suffixes=['', '1']
 df.interpolate(limit_direction='both', inplace=True)
 df.loc[:, 'obscode'] = obscode
 
-ax[0].plot(df.time.values, df.xra.values, 'x')
-ax[1].plot(df.time.values, df.yra.values, 'x')
-
+if args.do_plots:
+    ax[0].plot(df.time.values, df.xra.values, 'x', label='interp')
+    ax[1].plot(df.time.values, df.xdec.values, 'x', label='interp')
+    fig.suptitle('Experiment {}. Coordinates of X-axis over time'.format(obscode))
+    ax[0].legend()
+    ax[1].legend()
+    plt.savefig('{}.png'.format(file))
+    
 
 # write results to a new file
 f = open('{}_interpolated'.format(file), 'a')
