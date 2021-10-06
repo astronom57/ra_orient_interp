@@ -12,7 +12,7 @@ __maintainer__ = 'Mikhail Lisakov'
 __email__ = 'mlisakov@mpifr-bonn.mpg.de'
 __copyright__ = 'Copyright 2021'
 __license__ = 'GNU GPL v3.0'
-__version__ = '0.1'
+__version__ = '1.0'
 __status__ = 'Dev'
 
 
@@ -118,7 +118,7 @@ if args.do_plots:
 f = open('{}_interpolated'.format(file), 'a')
 f.write('# RadioAstron position information for experiment {}\n'.format(obscode))
 f.write('# Coordinates are equatorial J2000 measured in degrees\n')
-f.write('# Time us UTC\n')
+f.write('# Time is UTC\n')
 f.write('#obscode    time            X R.A.      X DEC       Y R.A.      Y DEC       Z R.A.      Z DEC\n')
 
 df.to_csv(f, sep=' ', columns=['obscode', 'time', 'xra', 'xdec', 'yra', 'ydec', 'zra', 'zdec'],
